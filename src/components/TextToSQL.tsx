@@ -3,18 +3,29 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Copy, Database } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
 
 const TextToSQL: React.FC = () => {
   const [textQuery, setTextQuery] = useState('');
   const [sqlResult, setSqlResult] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedDb, setSelectedDb] = useState('postgresql');
   
   // Sample SQL generation examples to showcase the feature
   const examples = [
     "Show me all users who signed up last month",
     "Find the top 10 products by revenue",
     "Count active users by country"
+  ];
+
+  const databases = [
+    { id: 'postgresql', name: 'PostgreSQL' },
+    { id: 'mysql', name: 'MySQL' },
+    { id: 'mssql', name: 'SQL Server' },
+    { id: 'snowflake', name: 'Snowflake' },
+    { id: 'bigquery', name: 'BigQuery' }
   ];
 
   const generateSQL = () => {
@@ -24,11 +35,12 @@ const TextToSQL: React.FC = () => {
     
     // Simulating API call with timeout
     setTimeout(() => {
-      // Sample SQL generation based on input
+      // Sample SQL generation based on input and selected database
       let generatedSQL = '';
       
       if (textQuery.toLowerCase().includes('users') && textQuery.toLowerCase().includes('last month')) {
-        generatedSQL = `SELECT 
+        if (selectedDb === 'postgresql' || selectedDb === 'mysql') {
+          generatedSQL = `SELECT 
   user_id, 
   first_name, 
   last_name, 
@@ -41,8 +53,52 @@ WHERE
   AND DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 day'
 ORDER BY 
   created_at DESC;`;
+        } else if (selectedDb === 'mssql') {
+          generatedSQL = `SELECT 
+  user_id, 
+  first_name, 
+  last_name, 
+  email, 
+  created_at
+FROM 
+  users
+WHERE 
+  created_at BETWEEN DATEADD(MONTH, -1, DATETRUNC(MONTH, GETDATE()))
+  AND DATEADD(DAY, -1, DATETRUNC(MONTH, GETDATE()))
+ORDER BY 
+  created_at DESC;`;
+        } else if (selectedDb === 'snowflake') {
+          generatedSQL = `SELECT 
+  user_id, 
+  first_name, 
+  last_name, 
+  email, 
+  created_at
+FROM 
+  users
+WHERE 
+  created_at BETWEEN DATE_TRUNC('MONTH', CURRENT_DATE()) - INTERVAL '1 MONTH'
+  AND DATE_TRUNC('MONTH', CURRENT_DATE()) - INTERVAL '1 DAY'
+ORDER BY 
+  created_at DESC;`;
+        } else if (selectedDb === 'bigquery') {
+          generatedSQL = `SELECT 
+  user_id, 
+  first_name, 
+  last_name, 
+  email, 
+  created_at
+FROM 
+  users
+WHERE 
+  created_at BETWEEN DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH), MONTH)
+  AND DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY)
+ORDER BY 
+  created_at DESC;`;
+        }
       } else if (textQuery.toLowerCase().includes('products') && textQuery.toLowerCase().includes('revenue')) {
-        generatedSQL = `SELECT 
+        if (selectedDb === 'postgresql' || selectedDb === 'mysql') {
+          generatedSQL = `SELECT 
   p.product_id, 
   p.product_name, 
   SUM(oi.quantity * oi.price) as revenue
@@ -59,20 +115,28 @@ GROUP BY
 ORDER BY 
   revenue DESC
 LIMIT 10;`;
-      } else if (textQuery.toLowerCase().includes('users') && textQuery.toLowerCase().includes('country')) {
-        generatedSQL = `SELECT 
-  country, 
-  COUNT(user_id) as active_users
+        } else {
+          generatedSQL = `-- ${selectedDb.toUpperCase()} query for products by revenue
+SELECT 
+  p.product_id, 
+  p.product_name, 
+  SUM(oi.quantity * oi.price) as revenue
 FROM 
-  users
+  products p
+JOIN 
+  order_items oi ON p.product_id = oi.product_id
+JOIN 
+  orders o ON oi.order_id = o.order_id
 WHERE 
-  last_login_date > CURRENT_DATE - INTERVAL '30 days'
+  o.status = 'completed'
 GROUP BY 
-  country
+  p.product_id, p.product_name
 ORDER BY 
-  active_users DESC;`;
+  revenue DESC
+LIMIT 10;`;
+        }
       } else {
-        generatedSQL = `-- Generated SQL based on: "${textQuery}"
+        generatedSQL = `-- Generated ${selectedDb.toUpperCase()} query based on: "${textQuery}"
 SELECT 
   *
 FROM 
@@ -92,6 +156,20 @@ LIMIT 100;`;
     setSqlResult('');
   };
 
+  const handleCopySQL = () => {
+    if (!sqlResult) return;
+    
+    navigator.clipboard.writeText(sqlResult);
+    toast("SQL copied to clipboard", {
+      description: "The SQL query has been copied to your clipboard",
+      position: "bottom-right",
+    });
+  };
+
+  const handleSqlChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setSqlResult(e.target.value);
+  };
+
   return (
     <section id="text-to-sql" className="py-20 px-6 bg-gray-50">
       <div className="max-w-5xl mx-auto">
@@ -107,9 +185,28 @@ LIMIT 100;`;
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-4">
             <div className="p-5 bg-white shadow-md rounded-lg border border-gray-200">
-              <label htmlFor="textQuery" className="block text-sm font-medium text-gray-700 mb-2">
-                Describe what data you need
-              </label>
+              <div className="flex items-center justify-between mb-4">
+                <label htmlFor="textQuery" className="block text-sm font-medium text-gray-700">
+                  Describe what data you need
+                </label>
+                <div className="w-36">
+                  <Select value={selectedDb} onValueChange={setSelectedDb}>
+                    <SelectTrigger>
+                      <div className="flex items-center gap-2">
+                        <Database className="h-4 w-4" />
+                        <SelectValue placeholder="Select database" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {databases.map((db) => (
+                        <SelectItem key={db.id} value={db.id}>
+                          {db.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <Textarea
                 id="textQuery"
                 value={textQuery}
@@ -159,18 +256,20 @@ LIMIT 100;`;
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs text-gray-400 hover:text-white"
-                  onClick={() => {
-                    navigator.clipboard.writeText(sqlResult);
-                  }}
+                  className="text-xs text-gray-400 hover:text-white flex items-center gap-1"
+                  onClick={handleCopySQL}
                 >
+                  <Copy className="h-3.5 w-3.5" />
                   Copy
                 </Button>
               )}
             </div>
-            <pre className="font-mono text-sm text-blue-300 overflow-x-auto max-h-[400px] p-2">
-              {sqlResult || '-- Your SQL will appear here --'}
-            </pre>
+            <Textarea
+              value={sqlResult}
+              onChange={handleSqlChange}
+              className="font-mono text-sm text-blue-300 bg-gray-950 border-gray-800 resize-none min-h-[350px] focus:ring-blue-500"
+              placeholder="-- Your SQL will appear here --"
+            />
           </div>
         </div>
       </div>
