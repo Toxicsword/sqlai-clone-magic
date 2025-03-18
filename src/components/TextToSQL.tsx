@@ -25,7 +25,9 @@ const TextToSQL: React.FC = () => {
     { id: 'mysql', name: 'MySQL' },
     { id: 'mssql', name: 'SQL Server' },
     { id: 'snowflake', name: 'Snowflake' },
-    { id: 'bigquery', name: 'BigQuery' }
+    { id: 'bigquery', name: 'BigQuery' },
+    { id: 'trino', name: 'Trino' },
+    { id: 'spark', name: 'Spark SQL' }
   ];
 
   const generateSQL = () => {
@@ -95,9 +97,73 @@ WHERE
   AND DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY)
 ORDER BY 
   created_at DESC;`;
+        } else if (selectedDb === 'trino') {
+          generatedSQL = `SELECT 
+  user_id, 
+  first_name, 
+  last_name, 
+  email, 
+  created_at
+FROM 
+  users
+WHERE 
+  created_at BETWEEN date_trunc('month', current_date - interval '1' month)
+  AND date_trunc('month', current_date) - interval '1' day
+ORDER BY 
+  created_at DESC;`;
+        } else if (selectedDb === 'spark') {
+          generatedSQL = `SELECT 
+  user_id, 
+  first_name, 
+  last_name, 
+  email, 
+  created_at
+FROM 
+  users
+WHERE 
+  created_at BETWEEN add_months(trunc(current_date(), 'MM'), -1)
+  AND date_sub(trunc(current_date(), 'MM'), 1)
+ORDER BY 
+  created_at DESC;`;
         }
       } else if (textQuery.toLowerCase().includes('products') && textQuery.toLowerCase().includes('revenue')) {
         if (selectedDb === 'postgresql' || selectedDb === 'mysql') {
+          generatedSQL = `SELECT 
+  p.product_id, 
+  p.product_name, 
+  SUM(oi.quantity * oi.price) as revenue
+FROM 
+  products p
+JOIN 
+  order_items oi ON p.product_id = oi.product_id
+JOIN 
+  orders o ON oi.order_id = o.order_id
+WHERE 
+  o.status = 'completed'
+GROUP BY 
+  p.product_id, p.product_name
+ORDER BY 
+  revenue DESC
+LIMIT 10;`;
+        } else if (selectedDb === 'trino') {
+          generatedSQL = `SELECT 
+  p.product_id, 
+  p.product_name, 
+  SUM(oi.quantity * oi.price) as revenue
+FROM 
+  products p
+JOIN 
+  order_items oi ON p.product_id = oi.product_id
+JOIN 
+  orders o ON oi.order_id = o.order_id
+WHERE 
+  o.status = 'completed'
+GROUP BY 
+  1, 2
+ORDER BY 
+  revenue DESC
+LIMIT 10;`;
+        } else if (selectedDb === 'spark') {
           generatedSQL = `SELECT 
   p.product_id, 
   p.product_name, 
