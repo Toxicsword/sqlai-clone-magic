@@ -7,6 +7,7 @@ import HowItWorks from '@/components/HowItWorks';
 import TestimonialSection from '@/components/TestimonialSection';
 import Pricing from '@/components/Pricing';
 import CTASection from '@/components/CTASection';
+import TextToSQL from '@/components/TextToSQL';
 import Footer from '@/components/Footer';
 
 const Index = () => {
@@ -21,6 +22,7 @@ const Index = () => {
       <main>
         <Hero />
         <Features />
+        <TextToSQL />
         <HowItWorks />
         <TestimonialSection />
         <Pricing />

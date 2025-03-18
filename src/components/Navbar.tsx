@@ -17,6 +17,9 @@ const Navbar: React.FC = () => {
           <a href="#features" className="text-gray-700 hover:text-blue-600 transition-colors">
             Features
           </a>
+          <a href="#text-to-sql" className="text-gray-700 hover:text-blue-600 transition-colors">
+            Text to SQL
+          </a>
           <a href="#how-it-works" className="text-gray-700 hover:text-blue-600 transition-colors">
             How it works
           </a>
